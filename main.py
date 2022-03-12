@@ -15,12 +15,13 @@ WILDCARD = "*"
 
 class Node:
 
-    def __init__(self, key: str, kind: str, is_input: bool, is_output: bool, color: str):
+    def __init__(self, key: str, kind: str, is_input: bool, is_output: bool, color: str, style: str):
         self.key = key
         self.kind = kind
         self.is_input = is_input
         self.is_output = is_output
         self.color = color
+        self.style = style
 
 
 class Edge:
@@ -41,13 +42,17 @@ class Graph:
 
     def add_node(self, key: str, kind: str, is_input: bool = False, is_output: bool = False):
         assert key not in self.nodes
-        if is_input or is_output:
-            color = "grey"
-        elif kind == RANDOM_NO_REPLACE:
+        if kind == RANDOM_NO_REPLACE:
             color = "red"
         else:
             color = "black"
-        self.nodes[key] = Node(key, kind, is_input, is_output, color)
+        if is_input:
+            style = "dotted"
+        elif is_output:
+            style = "dashed"
+        else:
+            style = "solid"
+        self.nodes[key] = Node(key, kind, is_input, is_output, color, style)
 
     def add_edge(self, source_key: str, target_key: str):
         key = f"e:{source_key}--{target_key}"
@@ -65,7 +70,7 @@ class Graph:
     def print_fancy(self):
         dot = graphviz.Digraph(comment=self.name)
         for node in self.nodes.values():
-            dot.node(node.key, node.kind, color=node.color)
+            dot.node(node.key, node.kind, color=node.color, style=node.style)
         for edge in self.edges.values():
             dot.edge(edge.source_key, edge.target_key, color=edge.color)
         dot.render(f"{self.name}.gv", view=True)
@@ -82,7 +87,7 @@ class IndistinguishablePair:
 
 def create_standard_rules():
     # Rule 1 - ?? PRG thing?
-    rule_1 = IndistinguishablePair("standard_1")
+    rule_1 = IndistinguishablePair("rule_1")
     # First graph
     rule_1.graph_a.add_node("$", RANDOM, is_input=True)
     rule_1.graph_a.add_node("G", G)
@@ -103,7 +108,7 @@ def create_standard_rules():
     rule_1.graph_b.add_edge("$2", "out2")
 
     # Rule 2 - ?? OTP thing? maybe revisit? remove F node and add ordering? is that actually how should work?
-    rule_2 = IndistinguishablePair("standard_2")
+    rule_2 = IndistinguishablePair("rule_2")
     # First graph
     rule_2.graph_a.add_node("$", RANDOM)
     rule_2.graph_a.add_node("out1", WILDCARD, is_output=True)
@@ -130,18 +135,18 @@ def create_standard_rules():
     rule_2.graph_b.add_edge("F", "out2")
 
     # Rule 3 - rand with/without replacement
-    rule_3 = IndistinguishablePair("standard_3")
+    rule_3 = IndistinguishablePair("rule_3")
     # First graph
-    rule_3.graph_a.add_node("$", RANDOM)
+    rule_3.graph_a.add_node("$", RANDOM, is_input=True)
     rule_3.graph_a.add_node("out", WILDCARD, is_output=True)
     rule_3.graph_a.add_edge("$", "out")
     # Second graph
-    rule_3.graph_b.add_node("$", RANDOM_NO_REPLACE)
+    rule_3.graph_b.add_node("$", RANDOM_NO_REPLACE, is_input=True)
     rule_3.graph_b.add_node("out", WILDCARD, is_output=True)
     rule_3.graph_b.add_edge("$", "out")
 
     # Rule 4 - what is E again??
-    rule_4 = IndistinguishablePair("standard_4")
+    rule_4 = IndistinguishablePair("rule_4")
     # First graph
     rule_4.graph_a.add_node("E", E)
     rule_4.graph_a.add_node("in", WILDCARD, is_input=True)
@@ -156,7 +161,7 @@ def create_standard_rules():
     rule_4.graph_b.add_edge("in", "deadend")
     rule_4.graph_b.add_edge("$", "out")
 
-    return [rule_4]
+    return [rule_1, rule_2, rule_3, rule_4]
 
 
 rules = create_standard_rules()
