@@ -90,6 +90,22 @@ class IndistinguishablePair:
         self.graph_a = Graph(f"{name}_a")
         self.graph_b = Graph(f"{name}_b")
 
+    def validate(self):
+        # Make sure there are matching numbers of inputs/outputs in the two graphs
+        inputs_a = sorted([node.input_rank for node in self.graph_a.nodes.values() if node.input_rank])
+        inputs_b = sorted([node.input_rank for node in self.graph_b.nodes.values() if node.input_rank])
+        assert inputs_a == inputs_b
+        outputs_a = sorted([node.output_rank for node in self.graph_a.nodes.values() if node.output_rank])
+        outputs_b = sorted([node.output_rank for node in self.graph_b.nodes.values() if node.output_rank])
+        assert outputs_a == outputs_b
+
+        # Make sure at least some inputs or outputs are specified
+        assert inputs_a or outputs_a
+
+        # Make sure all 'ranks' are unique
+        assert len(set(inputs_a)) == len(inputs_a)
+        assert len(set(outputs_a)) == len(outputs_a)
+
 
 def create_standard_rules():
     # Rule 1 - ?? PRG thing? one random in turns into two out
@@ -175,17 +191,15 @@ def create_standard_rules():
     rule_6.graph_b.add_node("in", WILDCARD, input_rank=1)
     rule_6.graph_b.add_node("$", RANDOM, output_rank=1)
 
-    return [rule_6]
+    return [rule_1, rule_2, rule_3, rule_4, rule_5, rule_6]
 
 
 rules = create_standard_rules()
 
 for rule in rules:
-    rule.graph_a.print_fancy()
-    rule.graph_b.print_fancy()
-
-
-
+    rule.validate()
+    # rule.graph_a.print_fancy()
+    # rule.graph_b.print_fancy()
 
 
 # my_graph = Graph("test")
