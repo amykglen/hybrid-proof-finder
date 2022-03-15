@@ -15,11 +15,11 @@ WILDCARD = "*"
 
 class Node:
 
-    def __init__(self, key: str, kind: str, is_input: bool, is_output: bool, color: str, style: str):
+    def __init__(self, key: str, kind: str, input_rank: int, output_rank: int, color: str, style: str):
         self.key = key
         self.kind = kind
-        self.is_input = is_input
-        self.is_output = is_output
+        self.input_rank = input_rank
+        self.output_rank = output_rank
         self.color = color
         self.style = style
 
@@ -40,19 +40,19 @@ class Graph:
         self.nodes = dict()
         self.edges = dict()
 
-    def add_node(self, key: str, kind: str, is_input: bool = False, is_output: bool = False):
+    def add_node(self, key: str, kind: str, input_rank: int = 0, output_rank: int = 0):
         assert key not in self.nodes
         if kind == RANDOM_NO_REPLACE:
             color = "red"
         else:
             color = "black"
-        if is_input:
+        if input_rank:
             style = "dotted"
-        elif is_output:
+        elif output_rank:
             style = "dashed"
         else:
             style = "solid"
-        self.nodes[key] = Node(key, kind, is_input, is_output, color, style)
+        self.nodes[key] = Node(key, kind, input_rank, output_rank, color, style)
 
     def add_edge(self, source_key: str, target_key: str):
         key = f"e:{source_key}--{target_key}"
@@ -63,14 +63,20 @@ class Graph:
 
     def print(self):
         for node in self.nodes.values():
-            print(f"{node.key}: {node.kind} {'INPUT' if node.is_input else ''} {'OUTPUT' if node.is_output else ''}")
+            print(f"{node.key}: {node.kind} {'INPUT' if node.input_rank else ''} {'OUTPUT' if node.output_rank else ''}")
         for edge in self.edges.values():
             print(f"{edge.key}: {edge.source_key}, {edge.target_key}, {edge.color}")
 
     def print_fancy(self):
         dot = graphviz.Digraph(comment=self.name)
         for node in self.nodes.values():
-            dot.node(node.key, node.kind, color=node.color, style=node.style)
+            if node.input_rank:
+                caption = f"in{node.input_rank}"
+            elif node.output_rank:
+                caption = f"out{node.output_rank}"
+            else:
+                caption = None
+            dot.node(node.key, node.kind, color=node.color, style=node.style, xlabel=caption)
         for edge in self.edges.values():
             dot.edge(edge.source_key, edge.target_key, color=edge.color)
         dot.render(f"{self.name}.gv", view=True)
@@ -86,24 +92,24 @@ class IndistinguishablePair:
 
 
 def create_standard_rules():
-    # Rule 1 - ?? PRG thing?
+    # Rule 1 - ?? PRG thing? one random in turns into two out
     rule_1 = IndistinguishablePair("rule_1")
     # First graph
-    rule_1.graph_a.add_node("$", RANDOM, is_input=True)
+    rule_1.graph_a.add_node("$", RANDOM, input_rank=1)
     rule_1.graph_a.add_node("G", G)
     rule_1.graph_a.add_edge("$", "G")
-    rule_1.graph_a.add_node("out1", WILDCARD, is_output=True)
-    rule_1.graph_a.add_node("out2", WILDCARD, is_output=True)
+    rule_1.graph_a.add_node("out1", WILDCARD, output_rank=1)
+    rule_1.graph_a.add_node("out2", WILDCARD, output_rank=2)
     rule_1.graph_a.add_edge("G", "out1")
     rule_1.graph_a.add_edge("G", "out2")
     # Second graph
-    rule_1.graph_b.add_node("$0", RANDOM, is_input=True)
+    rule_1.graph_b.add_node("$", RANDOM, input_rank=1)
     rule_1.graph_b.add_node("deadend", WILDCARD)
-    rule_1.graph_b.add_edge("$0", "deadend")
+    rule_1.graph_b.add_edge("$", "deadend")
     rule_1.graph_b.add_node("$1", RANDOM)
     rule_1.graph_b.add_node("$2", RANDOM)
-    rule_1.graph_b.add_node("out1", WILDCARD, is_output=True)
-    rule_1.graph_b.add_node("out2", WILDCARD, is_output=True)
+    rule_1.graph_b.add_node("out1", WILDCARD, output_rank=1)
+    rule_1.graph_b.add_node("out2", WILDCARD, output_rank=2)
     rule_1.graph_b.add_edge("$1", "out1")
     rule_1.graph_b.add_edge("$2", "out2")
 
@@ -111,57 +117,87 @@ def create_standard_rules():
     rule_2 = IndistinguishablePair("rule_2")
     # First graph
     rule_2.graph_a.add_node("$", RANDOM)
-    rule_2.graph_a.add_node("out1", WILDCARD, is_output=True)
+    rule_2.graph_a.add_node("out1", WILDCARD, output_rank=1)
     rule_2.graph_a.add_edge("$", "out1")
     rule_2.graph_a.add_node("xor", XOR)
-    rule_2.graph_a.add_node("F", F)
-    rule_2.graph_a.add_node("out2", WILDCARD, is_output=True)
-    rule_2.graph_a.add_edge("xor", "F")
-    rule_2.graph_a.add_edge("F", "out2")
+    rule_2.graph_a.add_node("out2", WILDCARD, output_rank=2)
+    rule_2.graph_a.add_edge("xor", "out2")
     rule_2.graph_a.add_edge("$", "xor")
-    rule_2.graph_a.add_node("in", WILDCARD, is_input=True)
+    rule_2.graph_a.add_node("in", WILDCARD, input_rank=1)
     rule_2.graph_a.add_edge("in", "xor")
     # Second graph
     rule_2.graph_b.add_node("xor", XOR)
-    rule_2.graph_b.add_node("out1", WILDCARD, is_output=True)
+    rule_2.graph_b.add_node("out1", WILDCARD, output_rank=1)
     rule_2.graph_b.add_edge("xor", "out1")
-    rule_2.graph_b.add_node("in", WILDCARD, is_input=True)
+    rule_2.graph_b.add_node("in", WILDCARD, input_rank=1)
     rule_2.graph_b.add_edge("in", "xor")
     rule_2.graph_b.add_node("$", RANDOM)
     rule_2.graph_b.add_edge("$", "xor")
-    rule_2.graph_b.add_node("F", F)
-    rule_2.graph_b.add_node("out2", WILDCARD, is_output=True)
-    rule_2.graph_b.add_edge("$", "F")
-    rule_2.graph_b.add_edge("F", "out2")
+    rule_2.graph_b.add_node("out2", WILDCARD, output_rank=2)
+    rule_2.graph_b.add_edge("$", "out2")
 
     # Rule 3 - rand with/without replacement
     rule_3 = IndistinguishablePair("rule_3")
     # First graph
-    rule_3.graph_a.add_node("$", RANDOM, is_input=True)
-    rule_3.graph_a.add_node("out", WILDCARD, is_output=True)
+    rule_3.graph_a.add_node("$", RANDOM, input_rank=1)
+    rule_3.graph_a.add_node("out", WILDCARD, output_rank=1)
     rule_3.graph_a.add_edge("$", "out")
     # Second graph
-    rule_3.graph_b.add_node("$", RANDOM_NO_REPLACE, is_input=True)
-    rule_3.graph_b.add_node("out", WILDCARD, is_output=True)
+    rule_3.graph_b.add_node("$", RANDOM_NO_REPLACE, input_rank=1)
+    rule_3.graph_b.add_node("out", WILDCARD, output_rank=1)
     rule_3.graph_b.add_edge("$", "out")
 
-    # Rule 4 - what is E again??
+    # Rule 4 - what is E??
     rule_4 = IndistinguishablePair("rule_4")
     # First graph
+    rule_4.graph_a.add_node("in", WILDCARD, input_rank=1)
     rule_4.graph_a.add_node("E", E)
-    rule_4.graph_a.add_node("in", WILDCARD, is_input=True)
-    rule_4.graph_a.add_node("out", WILDCARD, is_output=True)
+    rule_4.graph_a.add_node("out", WILDCARD, output_rank=1)
     rule_4.graph_a.add_edge("in", "E")
     rule_4.graph_a.add_edge("E", "out")
     # Second graph
-    rule_4.graph_b.add_node("$", RANDOM)
-    rule_4.graph_b.add_node("in", WILDCARD, is_input=True)
+    rule_4.graph_b.add_node("in", WILDCARD, input_rank=1)
     rule_4.graph_b.add_node("deadend", WILDCARD)
-    rule_4.graph_b.add_node("out", WILDCARD, is_output=True)
+    rule_4.graph_b.add_node("$", RANDOM)
+    rule_4.graph_b.add_node("out", WILDCARD, output_rank=1)
     rule_4.graph_b.add_edge("in", "deadend")
     rule_4.graph_b.add_edge("$", "out")
 
-    return [rule_1, rule_2, rule_3, rule_4]
+    # Rule 5 - PRF is like random? What does red in this case mean though?
+    rule_5 = IndistinguishablePair("rule_5")
+    # First graph
+    rule_5.graph_a.add_node("in", RANDOM_NO_REPLACE, input_rank=1)
+    rule_5.graph_a.add_node("F", F)
+    rule_5.graph_a.add_node("out", WILDCARD, output_rank=1)
+    rule_5.graph_a.add_edge("in", "F")
+    rule_5.graph_a.add_edge("F", "out")
+    # Second graph
+    rule_5.graph_b.add_node("in", RANDOM_NO_REPLACE, input_rank=1)
+    rule_5.graph_b.add_node("deadend", WILDCARD)
+    rule_5.graph_b.add_node("$", RANDOM)
+    rule_5.graph_b.add_node("out", WILDCARD, output_rank=1)
+    rule_5.graph_b.add_edge("in", "deadend")
+    rule_5.graph_b.add_edge("$", "out")
+
+    # Rule 6 - XOR with random makes random
+    rule_6 = IndistinguishablePair("rule_6")
+    # First graph
+    rule_6.graph_a.add_node("in", WILDCARD, input_rank=1)
+    rule_6.graph_a.add_node("xor", XOR)
+    rule_6.graph_a.add_edge("in", "xor")
+    rule_6.graph_a.add_node("$", RANDOM)
+    rule_6.graph_a.add_edge("$", "xor")
+    rule_6.graph_a.add_node("out", WILDCARD, output_rank=1)
+    rule_6.graph_a.add_edge("xor", "out")
+    # Second graph
+    rule_6.graph_b.add_node("in", WILDCARD, input_rank=1)
+    rule_6.graph_b.add_node("deadend", WILDCARD)
+    rule_6.graph_b.add_edge("in", "deadend")
+    rule_6.graph_b.add_node("$", RANDOM)
+    rule_6.graph_b.add_node("out", WILDCARD, output_rank=1)
+    rule_6.graph_b.add_edge("$", "out")
+
+    return [rule_6]
 
 
 rules = create_standard_rules()
