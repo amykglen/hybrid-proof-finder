@@ -103,15 +103,9 @@ def create_standard_rules():
     rule_1.graph_a.add_edge("G", "out1")
     rule_1.graph_a.add_edge("G", "out2")
     # Second graph
-    rule_1.graph_b.add_node("$", RANDOM, input_rank=1)
-    rule_1.graph_b.add_node("deadend", WILDCARD)
-    rule_1.graph_b.add_edge("$", "deadend")
-    rule_1.graph_b.add_node("$1", RANDOM)
-    rule_1.graph_b.add_node("$2", RANDOM)
-    rule_1.graph_b.add_node("out1", WILDCARD, output_rank=1)
-    rule_1.graph_b.add_node("out2", WILDCARD, output_rank=2)
-    rule_1.graph_b.add_edge("$1", "out1")
-    rule_1.graph_b.add_edge("$2", "out2")
+    rule_1.graph_b.add_node("$", RANDOM, input_rank=1)  # Think this could also be wildcard technically?
+    rule_1.graph_b.add_node("$1", RANDOM, output_rank=1)
+    rule_1.graph_b.add_node("$2", RANDOM, output_rank=2)
 
     # Rule 2 - ?? OTP thing? maybe revisit? remove F node and add ordering? is that actually how should work?
     rule_2 = IndistinguishablePair("rule_2")
@@ -136,16 +130,12 @@ def create_standard_rules():
     rule_2.graph_b.add_node("out2", WILDCARD, output_rank=2)
     rule_2.graph_b.add_edge("$", "out2")
 
-    # Rule 3 - rand with/without replacement
+    # Rule 3 - rand with/without replacement  # Don't need out node? just means can swap node?
     rule_3 = IndistinguishablePair("rule_3")
     # First graph
-    rule_3.graph_a.add_node("$", RANDOM, input_rank=1)
-    rule_3.graph_a.add_node("out", WILDCARD, output_rank=1)
-    rule_3.graph_a.add_edge("$", "out")
+    rule_3.graph_a.add_node("$", RANDOM, output_rank=1)
     # Second graph
-    rule_3.graph_b.add_node("$", RANDOM_NO_REPLACE, input_rank=1)
-    rule_3.graph_b.add_node("out", WILDCARD, output_rank=1)
-    rule_3.graph_b.add_edge("$", "out")
+    rule_3.graph_b.add_node("$", RANDOM_NO_REPLACE, output_rank=1)
 
     # Rule 4 - what is E??
     rule_4 = IndistinguishablePair("rule_4")
@@ -157,11 +147,7 @@ def create_standard_rules():
     rule_4.graph_a.add_edge("E", "out")
     # Second graph
     rule_4.graph_b.add_node("in", WILDCARD, input_rank=1)
-    rule_4.graph_b.add_node("deadend", WILDCARD)
-    rule_4.graph_b.add_node("$", RANDOM)
-    rule_4.graph_b.add_node("out", WILDCARD, output_rank=1)
-    rule_4.graph_b.add_edge("in", "deadend")
-    rule_4.graph_b.add_edge("$", "out")
+    rule_4.graph_b.add_node("$", RANDOM, output_rank=1)
 
     # Rule 5 - PRF is like random? What does red in this case mean though?
     rule_5 = IndistinguishablePair("rule_5")
@@ -173,11 +159,7 @@ def create_standard_rules():
     rule_5.graph_a.add_edge("F", "out")
     # Second graph
     rule_5.graph_b.add_node("in", RANDOM_NO_REPLACE, input_rank=1)
-    rule_5.graph_b.add_node("deadend", WILDCARD)
-    rule_5.graph_b.add_node("$", RANDOM)
-    rule_5.graph_b.add_node("out", WILDCARD, output_rank=1)
-    rule_5.graph_b.add_edge("in", "deadend")
-    rule_5.graph_b.add_edge("$", "out")
+    rule_5.graph_b.add_node("$", RANDOM, output_rank=1)
 
     # Rule 6 - XOR with random makes random
     rule_6 = IndistinguishablePair("rule_6")
@@ -191,11 +173,7 @@ def create_standard_rules():
     rule_6.graph_a.add_edge("xor", "out")
     # Second graph
     rule_6.graph_b.add_node("in", WILDCARD, input_rank=1)
-    rule_6.graph_b.add_node("deadend", WILDCARD)
-    rule_6.graph_b.add_edge("in", "deadend")
-    rule_6.graph_b.add_node("$", RANDOM)
-    rule_6.graph_b.add_node("out", WILDCARD, output_rank=1)
-    rule_6.graph_b.add_edge("$", "out")
+    rule_6.graph_b.add_node("$", RANDOM, output_rank=1)
 
     return [rule_6]
 
