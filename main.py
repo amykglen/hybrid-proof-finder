@@ -399,7 +399,7 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
     graph_paths = [[(copy.deepcopy(start), "-")]]
     count = 0
 
-    while not any(has_reached_end_state(graph_path, start, end) for graph_path in graph_paths) and count < 5:
+    while not any(has_reached_end_state(graph_path, start, end) for graph_path in graph_paths) and count < 20:
         count += 1
         print(f"On iteration {count} of while loop. Have {len(graph_paths)} graph paths currently.")
         extended_graph_paths = list()
@@ -450,6 +450,12 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
 
         if extended_graph_paths:
             graph_paths = extended_graph_paths
+
+    # Save all solutions
+    for graph_path in graph_paths:
+        if has_reached_end_state(graph_path, start, end):
+            print(f"Found solution: {graph_path[-1][0].name}")
+            save_graph_path(graph_path, start, end)
 
 
 rules = create_standard_rules()
