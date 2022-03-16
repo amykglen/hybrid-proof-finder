@@ -321,6 +321,8 @@ def save_graph_path(graph_path: list, start: Graph, end: Graph):
     for graph, step_name in graph_path:
         graph.print_fancy()
         merger.append(f"{graph.name}.gv.pdf")
+    end.print_fancy()
+    merger.append(f"end.gv.pdf")
     last_graph = graph_path[-1][0]
     merger.write(f"path--{last_graph.name}.gv.pdf")
     merger.close()
@@ -466,11 +468,13 @@ start.add_edge("$", "out1")
 start.add_edge("F", "out2")
 
 end = Graph("end")
-# end.add_node("in", WILDCARD)
+end.add_node("in", WILDCARD)
+end.add_node("deadend", DEADEND)
 end.add_node("$1", RANDOM)
 end.add_node("$2", RANDOM)
 end.add_node("out1", WILDCARD)
 end.add_node("out2", WILDCARD)
+end.add_edge("in", "deadend")
 end.add_edge("$1", "out1")
 end.add_edge("$2", "out2")
 
