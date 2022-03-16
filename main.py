@@ -17,22 +17,19 @@ WILDCARD = "*"
 
 class Node:
 
-    def __init__(self, key: str, kind: str, input_rank: int, output_rank: int, color: str, style: str):
+    def __init__(self, key: str, kind: str, input_rank: int, output_rank: int):
         self.key = key
         self.kind = kind
         self.input_rank = input_rank
         self.output_rank = output_rank
-        self.color = color
-        self.style = style
 
 
 class Edge:
 
-    def __init__(self, key: str, source_key: str, target_key: str, color: str):
+    def __init__(self, key: str, source_key: str, target_key: str):
         self.key = key
         self.source_key = source_key
         self.target_key = target_key
-        self.color = color
 
 
 class Graph:
@@ -44,24 +41,13 @@ class Graph:
 
     def add_node(self, key: str, kind: str, input_rank: int = 0, output_rank: int = 0):
         assert key not in self.nodes
-        if kind == RANDOM_NO_REPLACE:
-            color = "red"
-        else:
-            color = "black"
-        if input_rank:
-            style = "dotted"
-        elif output_rank:
-            style = "dashed"
-        else:
-            style = "solid"
-        self.nodes[key] = Node(key, kind, input_rank, output_rank, color, style)
+        self.nodes[key] = Node(key, kind, input_rank, output_rank)
 
     def add_edge(self, source_key: str, target_key: str):
         key = f"{source_key}--{target_key}"
         assert key not in self.edges
         assert source_key in self.nodes and target_key in self.nodes
-        color = "red" if self.nodes[source_key].kind == RANDOM_NO_REPLACE else "black"
-        self.edges[key] = Edge(key, source_key, target_key, color)
+        self.edges[key] = Edge(key, source_key, target_key)
 
     def remove_node(self, node_key: str):
         if node_key in self.nodes:
@@ -75,20 +61,28 @@ class Graph:
         for node in self.nodes.values():
             print(f"{node.key}: {node.kind} {'INPUT' if node.input_rank else ''} {'OUTPUT' if node.output_rank else ''}")
         for edge in self.edges.values():
-            print(f"{edge.key}: {edge.source_key}, {edge.target_key}, {edge.color}")
+            print(f"{edge.key}: {edge.source_key}, {edge.target_key}")
 
     def print_fancy(self):
         dot = graphviz.Digraph(comment=self.name)
         for node in self.nodes.values():
+            if node.kind == RANDOM_NO_REPLACE:
+                color = "red"
+            else:
+                color = "black"
             if node.input_rank:
                 caption = f"in{node.input_rank}"
+                style = "dotted"
             elif node.output_rank:
                 caption = f"out{node.output_rank}"
+                style = "dashed"
             else:
                 caption = None
-            dot.node(node.key, node.kind, color=node.color, style=node.style, xlabel=caption)
+                style = "solid"
+            dot.node(node.key, node.kind, color=color, style=style, xlabel=caption)
         for edge in self.edges.values():
-            dot.edge(edge.source_key, edge.target_key, color=edge.color)
+            color = "red" if self.nodes[edge.source_key].kind == RANDOM_NO_REPLACE else "black"
+            dot.edge(edge.source_key, edge.target_key, color=color)
         dot.render(f"{self.name}.gv", view=True)
         # TODO: Try to pin all input nodes at same top layer and output nodes at same bottom layer?
 
@@ -284,8 +278,6 @@ def has_subgraph(graph: Graph, template: Graph):
 
 def has_reached_end_state(graph_path: list, end: Graph) -> bool:
     latest_graph = graph_path[-1][0]
-    latest_graph.print_fancy()
-    end.print_fancy()
     return True if has_subgraph(latest_graph, end) else False
 
 
@@ -295,8 +287,7 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
 
     while not any(has_reached_end_state(graph_path, end) for graph_path in graph_paths) and count < 5:
         count += 1
-        print(f"starting while loop; have {len(graph_paths)} graph paths")
-        print(f"length of the graph path is {len(graph_paths[0])}")
+        print(graph_paths)
         extended_graph_paths = list()
         for graph_path in graph_paths:
             latest_graph_tuple = graph_path[-1]
@@ -334,6 +325,7 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
 
                     # Remove non input/output nodes in the subgraph from the larger graph
                     new_latest_graph = copy.deepcopy(latest_graph)
+                    new_latest_graph.name = f"{new_latest_graph.name}-{rule.name}"  # TODO: Fix if need it to work still
                     io_template_node_keys = {node.key for node in input_nodes_a}.union({node.key for node in output_nodes_a})
                     non_io_template_node_keys = set(rule.graph_a.nodes).difference(io_template_node_keys)
                     non_io_graph_keys = {template_to_graph_key_map[template_key] for template_key in non_io_template_node_keys}
@@ -345,11 +337,14 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
                     for io_graph_key in io_graph_keys:
                         del new_latest_graph.nodes[io_graph_key]
 
+                    # Avoid marking nodes as input/output in the larger graph
+                    for node in subgraph_to_swap_in.nodes.values():
+                        node.input_rank = 0
+                        node.output_rank = 0
+
                     # Add the (now prepped) equivalent graph b into the larger graph
                     new_latest_graph.nodes.update(subgraph_to_swap_in.nodes)
                     new_latest_graph.edges.update(subgraph_to_swap_in.edges)
-
-                    # TODO: Clear output ranks just before the above to avoid confusion?
 
                     extended_path = copy.deepcopy(graph_path)
                     extended_path.append((new_latest_graph, rule.name))
@@ -357,6 +352,11 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
 
         if extended_graph_paths:
             graph_paths = extended_graph_paths
+
+    last_graph = graph_paths[0][-1][0]
+    start.print_fancy()
+    last_graph.print_fancy()
+    end.print_fancy()
 
 
 rules = create_standard_rules()
