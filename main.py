@@ -5,6 +5,7 @@ from collections import defaultdict
 from typing import List, Optional, Tuple, Dict, Set
 
 import graphviz
+from PyPDF2 import PdfFileMerger
 
 RANDOM = "$"
 RANDOM_NO_REPLACE = "$-"
@@ -63,7 +64,7 @@ class Graph:
         for edge in self.edges.values():
             print(f"{edge.key}: {edge.source_key}, {edge.target_key}")
 
-    def print_fancy(self):
+    def print_fancy(self, auto_open_output: bool = False):
         dot = graphviz.Digraph(comment=self.name)
         for node in self.nodes.values():
             if node.kind == RANDOM_NO_REPLACE:
@@ -83,7 +84,7 @@ class Graph:
         for edge in self.edges.values():
             color = "red" if self.nodes[edge.source_key].kind == RANDOM_NO_REPLACE else "black"
             dot.edge(edge.source_key, edge.target_key, color=color)
-        dot.render(f"{self.name}.gv", view=True)
+        dot.render(f"{self.name}.gv", view=auto_open_output)
         # TODO: Try to pin all input nodes at same top layer and output nodes at same bottom layer?
 
     def validate(self):
@@ -428,9 +429,12 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
         last_graph = graph_path[-1][0]
         if last_graph.name == "start-rule_2_a-rule_3_a-rule_5_a-rule_3_b-rule_6_a":
             print(f"solution is in here!")
+            merger = PdfFileMerger()
             for graph, step_name in graph_path:
                 graph.print_fancy()
-            break
+                merger.append(f"{graph.name}.gv.pdf")
+            merger.write(f"path--{last_graph.name}.gv.pdf")
+            merger.close()
 
     # last_graph = graph_paths[0][-1][0]
     # last_graph.print_fancy()
