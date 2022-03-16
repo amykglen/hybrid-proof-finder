@@ -229,7 +229,7 @@ def create_standard_rules():
     rule_6.graph_b.add_node("in", WILDCARD, input_rank=1)
     rule_6.graph_b.add_node("$", RANDOM, output_rank=1)
 
-    return [rule_2]
+    return [rule_2, rule_3]
 
 
 def get_adjacency_dict(graph: Graph) -> defaultdict:
@@ -312,14 +312,16 @@ def swap_subgraphs(subgraph_a: Graph, subgraph_b: Graph, larger_graph: Graph,
                                           if node.input_rank == input_node_a.input_rank)
         corresponding_graph_key = subgraph_a_to_graph_key_map[input_node_a.key]
         subgraph_to_swap_in.change_node_key(corresponding_input_node_b.key, corresponding_graph_key)
-        subgraph_to_swap_in.nodes[corresponding_graph_key].kind = larger_graph.nodes[corresponding_graph_key].kind
+        if subgraph_to_swap_in.nodes[corresponding_graph_key].kind == WILDCARD:
+            subgraph_to_swap_in.nodes[corresponding_graph_key].kind = larger_graph.nodes[corresponding_graph_key].kind
     # Find corresponding output nodes and make the new subgraph uses the original graph's IDs for these
     for output_node_a in output_nodes_a:
         corresponding_output_node_b = next(node for node in subgraph_to_swap_in.nodes.values()
                                            if node.output_rank == output_node_a.output_rank)
         corresponding_graph_key = subgraph_a_to_graph_key_map[output_node_a.key]
         subgraph_to_swap_in.change_node_key(corresponding_output_node_b.key, corresponding_graph_key)
-        subgraph_to_swap_in.nodes[corresponding_graph_key].kind = larger_graph.nodes[corresponding_graph_key].kind
+        if subgraph_to_swap_in.nodes[corresponding_graph_key].kind == WILDCARD:
+            subgraph_to_swap_in.nodes[corresponding_graph_key].kind = larger_graph.nodes[corresponding_graph_key].kind
 
     # Make sure non input/output nodes in new subgraph have IDs not already used in larger graph
     non_io_node_keys_b = {node.key for node in subgraph_b.nodes.values()
@@ -357,7 +359,7 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
     graph_paths = [[(copy.deepcopy(start), "-")]]
     count = 0
 
-    while not any(has_reached_end_state(graph_path, end) for graph_path in graph_paths) and count < 1:
+    while not any(has_reached_end_state(graph_path, end) for graph_path in graph_paths) and count < 2:
         count += 1
         print(f"On iteration {count} of while loop. Have {len(graph_paths)} graph paths currently.")
         extended_graph_paths = list()
@@ -409,17 +411,19 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
         if extended_graph_paths:
             graph_paths = extended_graph_paths
 
+    start.print_fancy()
+    end.print_fancy()
+
     for graph_path in graph_paths:
         last_graph = graph_path[-1][0]
-        if last_graph.name == "start-rule_3_a":
+        if last_graph.name == "start-rule_2_a-rule_3_a":
             print(f"solution is in here!")
-            last_graph.print_fancy()
+            for graph, step_name in graph_path:
+                graph.print_fancy()
             break
 
-    last_graph = graph_paths[0][-1][0]
-    start.print_fancy()
-    last_graph.print_fancy()
-    end.print_fancy()
+    # last_graph = graph_paths[0][-1][0]
+    # last_graph.print_fancy()
 
 
 rules = create_standard_rules()
