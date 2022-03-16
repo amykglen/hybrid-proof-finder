@@ -248,10 +248,15 @@ def standardize_keys(adjacency_dict: Dict[str, Set[str]], key_map: Dict[str, int
 
 
 def has_subgraph(graph: Graph, template: Graph):
-    # Create some helper maps
-    nodes_by_kind = defaultdict(set)  # TODO: Add all to wildcard kind
+    # Organize node IDs by their 'kind'
+    nodes_by_kind = defaultdict(set)
     for node in graph.nodes.values():
         nodes_by_kind[node.kind].add(node.key)
+    # But count any node kind as 'wildcard'
+    all_node_ids = set(graph.nodes)
+    nodes_by_kind[WILDCARD] = all_node_ids
+
+    # Create some other helper data structures
     template_nodes = list(template.nodes.values())
     template_adj_dict = get_adjacency_dict(template)
     template_key_to_index_map = {node.key: index for index, node in enumerate(template_nodes)}
@@ -350,10 +355,23 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
         count += 1
         print(f"On iteration {count} of while loop. Have {len(graph_paths)} graph paths currently.")
         extended_graph_paths = list()
+
+        # Get rid of any identical graph paths
+        paths_seen = set()
+        pruned_paths = []
+        for graph_path in graph_paths:
+            latest_graph = graph_path[-1][0]
+            if latest_graph.name not in paths_seen:
+                pruned_paths.append(graph_path)
+                paths_seen.add(latest_graph.name)
+        print(f"After pruning of identical paths, have {len(pruned_paths)} graph paths")
+        graph_paths = pruned_paths
+
         for graph_path in graph_paths:
             latest_graph_tuple = graph_path[-1]
             latest_graph = latest_graph_tuple[0]
-            print(f" Attempting to extend graph path {graph_paths.index(graph_path)}; latest graph is {latest_graph.name}")
+            print(f" Attempting to extend graph path {graph_paths.index(graph_path)}; "
+                  f"latest graph is {latest_graph.name}")
 
             for rule in rules:
                 print(f"  Starting to search for rule {rule.name} templates")
