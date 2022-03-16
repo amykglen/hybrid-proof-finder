@@ -220,7 +220,7 @@ def create_standard_rules():
     rule_6.graph_b.add_node("$", RANDOM, output_rank=1)
 
     # return [rule_1, rule_2, rule_3, rule_4, rule_5, rule_6]
-    return [rule_3]
+    return [rule_3, rule_4]
 
 
 def get_adjacency_dict(graph: Graph) -> defaultdict:
@@ -287,16 +287,20 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
 
     while not any(has_reached_end_state(graph_path, end) for graph_path in graph_paths) and count < 5:
         count += 1
-        print(graph_paths)
+        print(f"On iteration {count} of while loop. Have {len(graph_paths)} graph paths currently.")
         extended_graph_paths = list()
         for graph_path in graph_paths:
             latest_graph_tuple = graph_path[-1]
             latest_graph = latest_graph_tuple[0]
+            print(f" Attempting to extend graph path {graph_paths.index(graph_path)}; latest graph is {latest_graph.name}")
+
             for rule in rules:
+                print(f"  Starting to search for rule {rule.name} templates")
                 input_nodes_a = [node for node in rule.graph_a.nodes.values() if node.input_rank]
                 output_nodes_a = [node for node in rule.graph_a.nodes.values() if node.output_rank]
 
                 matching_subgraphs_a = has_subgraph(latest_graph, rule.graph_a)
+                print(f"  Found {len(matching_subgraphs_a)} subgraphs in latest graph in this path that match rule {rule.name}a template")
                 for matching_subgraph, template_to_graph_key_map in matching_subgraphs_a:
 
                     # Initiate a fresh copy of the subgraph that'll be swapped in (so we can modify it)
