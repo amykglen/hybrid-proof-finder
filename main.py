@@ -158,8 +158,12 @@ def create_standard_rules():
     rule_1.graph_a.add_edge("G", "out2")
     # Second graph
     rule_1.graph_b.add_node("$", RANDOM, input_rank=1)  # Think this could also be wildcard technically?
-    rule_1.graph_b.add_node("$1", RANDOM, output_rank=1)
-    rule_1.graph_b.add_node("$2", RANDOM, output_rank=2)
+    rule_1.graph_b.add_node("$1", RANDOM)
+    rule_1.graph_b.add_node("$2", RANDOM)
+    rule_1.graph_b.add_node("out1", WILDCARD, output_rank=1)
+    rule_1.graph_b.add_node("out2", WILDCARD, output_rank=2)
+    rule_1.graph_b.add_edge("$1", "out1")
+    rule_1.graph_b.add_edge("$2", "out2")
 
     # Rule 2 - ?? OTP thing? maybe revisit? remove F node and add ordering? is that actually how should work?
     rule_2 = IndistinguishablePair("rule_2")
@@ -201,7 +205,9 @@ def create_standard_rules():
     rule_4.graph_a.add_edge("E", "out")
     # Second graph
     rule_4.graph_b.add_node("in", WILDCARD, input_rank=1)
-    rule_4.graph_b.add_node("$", RANDOM, output_rank=1)
+    rule_4.graph_b.add_node("$", RANDOM)
+    rule_4.graph_b.add_node("out", WILDCARD, output_rank=1)
+    rule_4.graph_b.add_edge("$", "out")
 
     # Rule 5 - PRF is like random? What does red in this case mean though?
     rule_5 = IndistinguishablePair("rule_5")
@@ -213,7 +219,9 @@ def create_standard_rules():
     rule_5.graph_a.add_edge("F", "out")
     # Second graph
     rule_5.graph_b.add_node("in", RANDOM_NO_REPLACE, input_rank=1)
-    rule_5.graph_b.add_node("$", RANDOM, output_rank=1)
+    rule_5.graph_b.add_node("$", RANDOM)
+    rule_5.graph_b.add_node("out", WILDCARD, output_rank=1)
+    rule_5.graph_b.add_edge("$", "out")
 
     # Rule 6 - XOR with random makes random
     rule_6 = IndistinguishablePair("rule_6")
@@ -227,9 +235,11 @@ def create_standard_rules():
     rule_6.graph_a.add_edge("xor", "out")
     # Second graph
     rule_6.graph_b.add_node("in", WILDCARD, input_rank=1)
-    rule_6.graph_b.add_node("$", RANDOM, output_rank=1)
+    rule_6.graph_b.add_node("$", RANDOM)
+    rule_6.graph_b.add_node("out", WILDCARD, output_rank=1)
+    rule_6.graph_b.add_edge("$", "out")
 
-    return [rule_2, rule_3]
+    return [rule_2, rule_3, rule_5, rule_6]
 
 
 def get_adjacency_dict(graph: Graph) -> defaultdict:
@@ -359,7 +369,7 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
     graph_paths = [[(copy.deepcopy(start), "-")]]
     count = 0
 
-    while not any(has_reached_end_state(graph_path, end) for graph_path in graph_paths) and count < 2:
+    while not any(has_reached_end_state(graph_path, end) for graph_path in graph_paths) and count < 5:
         count += 1
         print(f"On iteration {count} of while loop. Have {len(graph_paths)} graph paths currently.")
         extended_graph_paths = list()
@@ -416,7 +426,7 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
 
     for graph_path in graph_paths:
         last_graph = graph_path[-1][0]
-        if last_graph.name == "start-rule_2_a-rule_3_a":
+        if last_graph.name == "start-rule_2_a-rule_3_a-rule_5_a-rule_3_b-rule_6_a":
             print(f"solution is in here!")
             for graph, step_name in graph_path:
                 graph.print_fancy()
