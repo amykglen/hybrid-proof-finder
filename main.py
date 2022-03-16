@@ -92,6 +92,9 @@ class Graph:
         assert inputs or outputs
         return inputs, outputs
 
+    def get_edge_key(self, edge: Edge) -> str:
+        return f"{edge.source_key}--{edge.target_key}"
+
     def change_node_key(self, old_key: str, new_key: str):
         # Delete the old node
         assert old_key in self.nodes
@@ -104,16 +107,21 @@ class Graph:
         self.nodes[new_key] = node
 
         # Then edit any attached edges
+        for edge_key, edge in self.edges.items():
+            if edge_key != edge.key:
+                print(f"Uh oh! edge_key is {edge_key}, but edge.key is {edge.key}")
         edge_keys_to_modify = {edge.key for edge in self.edges.values()
                                if edge.source_key == old_key or edge.target_key == old_key}
         for edge_key in edge_keys_to_modify:
             edge = self.edges[edge_key]
+            del self.edges[edge_key]
             if edge.source_key == old_key:
                 edge.source_key = new_key
             elif edge.target_key == old_key:
                 edge.target_key = new_key
-            self.edges[f"{edge.source_key}--{edge.target_key}"] = edge
-            del self.edges[edge_key]
+            new_edge_key = self.get_edge_key(edge)
+            edge.key = new_edge_key
+            self.edges[new_edge_key] = edge
 
 
 class IndistinguishablePair:
@@ -281,6 +289,59 @@ def has_reached_end_state(graph_path: list, end: Graph) -> bool:
     return True if has_subgraph(latest_graph, end) else False
 
 
+def swap_subgraphs(subgraph_a: Graph, subgraph_b: Graph, larger_graph: Graph,
+                   subgraph_a_to_graph_key_map: Dict[str, str]) -> Graph:
+    input_nodes_a = [node for node in subgraph_a.nodes.values() if node.input_rank]
+    output_nodes_a = [node for node in subgraph_a.nodes.values() if node.output_rank]
+
+    # Initiate a fresh copy of the subgraph that'll be swapped in (so we can modify it)
+    subgraph_to_swap_in = copy.deepcopy(subgraph_b)
+
+    # Find corresponding input nodes in b and make the new subgraph uses the original graph's IDs for these
+    for input_node_a in input_nodes_a:
+        corresponding_input_node_b = next(node for node in subgraph_to_swap_in.nodes.values()
+                                          if node.input_rank == input_node_a.input_rank)
+        corresponding_graph_key = subgraph_a_to_graph_key_map[input_node_a.key]
+        subgraph_to_swap_in.change_node_key(corresponding_input_node_b.key, corresponding_graph_key)
+    # Find corresponding output nodes and make the new subgraph uses the original graph's IDs for these
+    for output_node_a in output_nodes_a:
+        corresponding_output_node_b = next(node for node in subgraph_to_swap_in.nodes.values()
+                                           if node.output_rank == output_node_a.output_rank)
+        corresponding_graph_key = subgraph_a_to_graph_key_map[output_node_a.key]
+        subgraph_to_swap_in.change_node_key(corresponding_output_node_b.key, corresponding_graph_key)
+
+    # Make sure non input/output nodes in new subgraph have IDs not already used in larger graph
+    non_io_node_keys_b = {node.key for node in subgraph_b.nodes.values()
+                          if not node.input_rank and not node.output_rank}
+    for node_key in non_io_node_keys_b:
+        subgraph_to_swap_in.change_node_key(node_key, str(time.time()))
+
+    # Remove non input/output nodes in the subgraph from the larger graph
+    new_graph_with_b = copy.deepcopy(larger_graph)
+    new_graph_with_b.name = f"{new_graph_with_b.name}-{subgraph_a.name}"  # TODO: Fix if need it to work still
+    io_template_node_keys = {node.key for node in input_nodes_a}.union({node.key for node in output_nodes_a})
+    non_io_template_node_keys = set(subgraph_a.nodes).difference(io_template_node_keys)
+    non_io_graph_keys = {subgraph_a_to_graph_key_map[template_key] for template_key in non_io_template_node_keys}
+    for non_io_graph_key in non_io_graph_keys:
+        new_graph_with_b.remove_node(non_io_graph_key)
+
+    # Delete input/output nodes from larger graph (but keep their edges) since they're in the new subgraph
+    io_graph_keys = {subgraph_a_to_graph_key_map[template_key] for template_key in io_template_node_keys}
+    for io_graph_key in io_graph_keys:
+        del new_graph_with_b.nodes[io_graph_key]
+
+    # Avoid marking nodes as input/output in the larger graph
+    for node in subgraph_to_swap_in.nodes.values():
+        node.input_rank = 0
+        node.output_rank = 0
+
+    # Add the (now prepped) equivalent graph b into the larger graph
+    new_graph_with_b.nodes.update(subgraph_to_swap_in.nodes)
+    new_graph_with_b.edges.update(subgraph_to_swap_in.edges)
+
+    return new_graph_with_b
+
+
 def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
     graph_paths = [[(copy.deepcopy(start), "-")]]
     count = 0
@@ -296,62 +357,29 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
 
             for rule in rules:
                 print(f"  Starting to search for rule {rule.name} templates")
-                input_nodes_a = [node for node in rule.graph_a.nodes.values() if node.input_rank]
-                output_nodes_a = [node for node in rule.graph_a.nodes.values() if node.output_rank]
 
+                # TODO: Prevent from looping back to previous state
+
+                # First look for swaps that can be done from a --> b
                 matching_subgraphs_a = has_subgraph(latest_graph, rule.graph_a)
-                print(f"  Found {len(matching_subgraphs_a)} subgraphs in latest graph in this path that match rule {rule.name}a template")
-                for matching_subgraph, template_to_graph_key_map in matching_subgraphs_a:
-
-                    # Initiate a fresh copy of the subgraph that'll be swapped in (so we can modify it)
-                    subgraph_to_swap_in = copy.deepcopy(rule.graph_b)
-
-                    # Find corresponding input nodes and make the new subgraph uses the original graph's IDs for these
-                    for input_node_a in input_nodes_a:
-                        corresponding_input_node_b = next(node for node in subgraph_to_swap_in.nodes.values()
-                                                          if node.input_rank == input_node_a.input_rank)
-                        corresponding_graph_key = template_to_graph_key_map[input_node_a.key]
-                        subgraph_to_swap_in.change_node_key(corresponding_input_node_b.key, corresponding_graph_key)
-                    # Find corresponding output nodes and make the new subgraph uses the original graph's IDs for these
-                    for output_node_a in output_nodes_a:
-                        corresponding_output_node_b = next(node for node in subgraph_to_swap_in.nodes.values()
-                                                           if node.output_rank == output_node_a.output_rank)
-                        corresponding_graph_key = template_to_graph_key_map[output_node_a.key]
-                        subgraph_to_swap_in.change_node_key(corresponding_output_node_b.key, corresponding_graph_key)
-
-                    # Make sure non input/output nodes in new subgraph have IDs not already used in larger graph
-                    non_io_node_keys_b = {node.key for node in rule.graph_b.nodes.values()
-                                          if not node.input_rank and not node.output_rank}
-                    for node_key in non_io_node_keys_b:
-                        subgraph_to_swap_in.change_node_key(node_key, str(time.time()))
-
-                    # TODO: Do the equivalent but for b to a, rather than only a to b
-
-                    # Remove non input/output nodes in the subgraph from the larger graph
-                    new_latest_graph = copy.deepcopy(latest_graph)
-                    new_latest_graph.name = f"{new_latest_graph.name}-{rule.name}"  # TODO: Fix if need it to work still
-                    io_template_node_keys = {node.key for node in input_nodes_a}.union({node.key for node in output_nodes_a})
-                    non_io_template_node_keys = set(rule.graph_a.nodes).difference(io_template_node_keys)
-                    non_io_graph_keys = {template_to_graph_key_map[template_key] for template_key in non_io_template_node_keys}
-                    for non_io_graph_key in non_io_graph_keys:
-                        new_latest_graph.remove_node(non_io_graph_key)
-
-                    # Delete input/output nodes from larger graph (but keep their edges) since they're in the new subgraph
-                    io_graph_keys = {template_to_graph_key_map[template_key] for template_key in io_template_node_keys}
-                    for io_graph_key in io_graph_keys:
-                        del new_latest_graph.nodes[io_graph_key]
-
-                    # Avoid marking nodes as input/output in the larger graph
-                    for node in subgraph_to_swap_in.nodes.values():
-                        node.input_rank = 0
-                        node.output_rank = 0
-
-                    # Add the (now prepped) equivalent graph b into the larger graph
-                    new_latest_graph.nodes.update(subgraph_to_swap_in.nodes)
-                    new_latest_graph.edges.update(subgraph_to_swap_in.edges)
-
+                print(f"  Found {len(matching_subgraphs_a)} subgraphs in latest graph in this path that match "
+                      f"rule {rule.name}a template")
+                for matching_subgraph, template_a_to_graph_key_map in matching_subgraphs_a:
+                    new_graph_with_b = swap_subgraphs(rule.graph_a, rule.graph_b, latest_graph,
+                                                      template_a_to_graph_key_map)
                     extended_path = copy.deepcopy(graph_path)
-                    extended_path.append((new_latest_graph, rule.name))
+                    extended_path.append((new_graph_with_b, f"{rule.name}_a-->b"))
+                    extended_graph_paths.append(extended_path)
+
+                # Then look for swaps that can be done from b --> a
+                matching_subgraphs_b = has_subgraph(latest_graph, rule.graph_b)
+                print(f"  Found {len(matching_subgraphs_b)} subgraphs in latest graph in this path that match "
+                      f"rule {rule.name}b template")
+                for matching_subgraph, template_b_to_graph_key_map in matching_subgraphs_b:
+                    new_graph_with_a = swap_subgraphs(rule.graph_b, rule.graph_a, latest_graph,
+                                                      template_b_to_graph_key_map)
+                    extended_path = copy.deepcopy(graph_path)
+                    extended_path.append((new_graph_with_a, f"{rule.name}_b-->a"))
                     extended_graph_paths.append(extended_path)
 
         if extended_graph_paths:
