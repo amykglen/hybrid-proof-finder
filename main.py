@@ -101,15 +101,17 @@ class Graph:
         node = self.nodes[old_key]
         del self.nodes[old_key]
 
+        # Make sure new node key isn't in the graph already
+        if new_key in self.nodes:
+            new_new_key = f"{new_key}--{time.time()}"
+            self.change_node_key(new_key, new_new_key)
+
         # Add node under new key
         assert new_key not in self.nodes
         node.key = new_key
         self.nodes[new_key] = node
 
         # Then edit any attached edges
-        for edge_key, edge in self.edges.items():
-            if edge_key != edge.key:
-                print(f"Uh oh! edge_key is {edge_key}, but edge.key is {edge.key}")
         edge_keys_to_modify = {edge.key for edge in self.edges.values()
                                if edge.source_key == old_key or edge.target_key == old_key}
         for edge_key in edge_keys_to_modify:
@@ -227,8 +229,7 @@ def create_standard_rules():
     rule_6.graph_b.add_node("in", WILDCARD, input_rank=1)
     rule_6.graph_b.add_node("$", RANDOM, output_rank=1)
 
-    # return [rule_1, rule_2, rule_3, rule_4, rule_5, rule_6]
-    return [rule_3, rule_4]
+    return [rule_2]
 
 
 def get_adjacency_dict(graph: Graph) -> defaultdict:
@@ -291,7 +292,10 @@ def has_subgraph(graph: Graph, template: Graph):
 
 def has_reached_end_state(graph_path: list, end: Graph) -> bool:
     latest_graph = graph_path[-1][0]
-    return True if has_subgraph(latest_graph, end) else False
+    reached_end_state = True if has_subgraph(latest_graph, end) else False
+    if reached_end_state:
+        print(f"WE REACHED AN END STATE!!!!")
+    return reached_end_state
 
 
 def swap_subgraphs(subgraph_a: Graph, subgraph_b: Graph, larger_graph: Graph,
@@ -308,12 +312,14 @@ def swap_subgraphs(subgraph_a: Graph, subgraph_b: Graph, larger_graph: Graph,
                                           if node.input_rank == input_node_a.input_rank)
         corresponding_graph_key = subgraph_a_to_graph_key_map[input_node_a.key]
         subgraph_to_swap_in.change_node_key(corresponding_input_node_b.key, corresponding_graph_key)
+        subgraph_to_swap_in.nodes[corresponding_graph_key].kind = larger_graph.nodes[corresponding_graph_key].kind
     # Find corresponding output nodes and make the new subgraph uses the original graph's IDs for these
     for output_node_a in output_nodes_a:
         corresponding_output_node_b = next(node for node in subgraph_to_swap_in.nodes.values()
                                            if node.output_rank == output_node_a.output_rank)
         corresponding_graph_key = subgraph_a_to_graph_key_map[output_node_a.key]
         subgraph_to_swap_in.change_node_key(corresponding_output_node_b.key, corresponding_graph_key)
+        subgraph_to_swap_in.nodes[corresponding_graph_key].kind = larger_graph.nodes[corresponding_graph_key].kind
 
     # Make sure non input/output nodes in new subgraph have IDs not already used in larger graph
     non_io_node_keys_b = {node.key for node in subgraph_b.nodes.values()
@@ -351,7 +357,7 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
     graph_paths = [[(copy.deepcopy(start), "-")]]
     count = 0
 
-    while not any(has_reached_end_state(graph_path, end) for graph_path in graph_paths) and count < 5:
+    while not any(has_reached_end_state(graph_path, end) for graph_path in graph_paths) and count < 1:
         count += 1
         print(f"On iteration {count} of while loop. Have {len(graph_paths)} graph paths currently.")
         extended_graph_paths = list()
@@ -402,6 +408,13 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
 
         if extended_graph_paths:
             graph_paths = extended_graph_paths
+
+    for graph_path in graph_paths:
+        last_graph = graph_path[-1][0]
+        if last_graph.name == "start-rule_3_a":
+            print(f"solution is in here!")
+            last_graph.print_fancy()
+            break
 
     last_graph = graph_paths[0][-1][0]
     start.print_fancy()
