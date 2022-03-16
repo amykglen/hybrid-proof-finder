@@ -14,6 +14,7 @@ F = "F"
 E = "E"
 XOR = "XOR"
 WILDCARD = "*"
+DEADEND = "//"
 
 
 class Node:
@@ -206,9 +207,11 @@ def create_standard_rules():
     rule_4.graph_a.add_edge("E", "out")
     # Second graph
     rule_4.graph_b.add_node("in", WILDCARD, input_rank=1)
+    rule_4.graph_b.add_node("deadend", DEADEND)
     rule_4.graph_b.add_node("$", RANDOM)
     rule_4.graph_b.add_node("out", WILDCARD, output_rank=1)
     rule_4.graph_b.add_edge("$", "out")
+    rule_4.graph_b.add_edge("in", "deadend")
 
     # Rule 5 - PRF is like random? What does red in this case mean though?
     rule_5 = IndistinguishablePair("rule_5")
@@ -220,9 +223,11 @@ def create_standard_rules():
     rule_5.graph_a.add_edge("F", "out")
     # Second graph
     rule_5.graph_b.add_node("in", RANDOM_NO_REPLACE, input_rank=1)
+    rule_5.graph_b.add_node("deadend", DEADEND)
     rule_5.graph_b.add_node("$", RANDOM)
     rule_5.graph_b.add_node("out", WILDCARD, output_rank=1)
     rule_5.graph_b.add_edge("$", "out")
+    rule_5.graph_b.add_edge("in", "deadend")
 
     # Rule 6 - XOR with random makes random
     rule_6 = IndistinguishablePair("rule_6")
@@ -236,9 +241,11 @@ def create_standard_rules():
     rule_6.graph_a.add_edge("xor", "out")
     # Second graph
     rule_6.graph_b.add_node("in", WILDCARD, input_rank=1)
+    rule_6.graph_b.add_node("deadend", DEADEND)
     rule_6.graph_b.add_node("$", RANDOM)
     rule_6.graph_b.add_node("out", WILDCARD, output_rank=1)
     rule_6.graph_b.add_edge("$", "out")
+    rule_6.graph_b.add_edge("in", "deadend")
 
     return [rule_2, rule_3, rule_5, rule_6]
 
@@ -253,20 +260,20 @@ def get_adjacency_dict(graph: Graph) -> defaultdict:
 def standardize_keys(adjacency_dict: Dict[str, Set[str]], key_map: Dict[str, int]) -> dict:
     adj_dict_standardized = dict()
     for node_key, neighbors in adjacency_dict.items():
-        standardized_node_key = key_map[node_key]
-        neighbors_standardized = {key_map[neighbor_key] for neighbor_key in neighbors}
+        standardized_node_key = key_map.get(node_key, node_key)
+        neighbors_standardized = {key_map.get(neighbor_key, neighbor_key) for neighbor_key in neighbors}
         adj_dict_standardized[standardized_node_key] = neighbors_standardized
     return adj_dict_standardized
 
 
-def has_subgraph(graph: Graph, template: Graph):
+def has_subgraph(graph: Graph, template: Graph, include_edges_to_outsiders: bool = False):
     # Organize node IDs by their 'kind'
     nodes_by_kind = defaultdict(set)
     for node in graph.nodes.values():
         nodes_by_kind[node.kind].add(node.key)
     # But count any node kind as 'wildcard'
-    all_node_ids = set(graph.nodes)
-    nodes_by_kind[WILDCARD] = all_node_ids
+    all_non_deadend_node_ids = {node.key for node in graph.nodes.values() if not node.kind == DEADEND}  # TODO: this is kind of a patch...
+    nodes_by_kind[WILDCARD] = all_non_deadend_node_ids
 
     # Create some other helper data structures
     template_nodes = list(template.nodes.values())
@@ -286,9 +293,15 @@ def has_subgraph(graph: Graph, template: Graph):
         combination_graph = Graph(name="--".join(combination_node_keys))
 
         combination_graph.nodes = {node_key: graph.nodes[node_key] for node_key in combination_node_keys}
-        combination_graph.edges = {edge_key: edge for edge_key, edge in graph.edges.items()
-                                   if edge.source_key in combination_graph.nodes and
-                                   edge.target_key in combination_graph.nodes}
+        if include_edges_to_outsiders:
+            combination_graph.edges = {edge_key: edge for edge_key, edge in graph.edges.items()
+                                       if edge.source_key in combination_graph.nodes or
+                                       edge.target_key in combination_graph.nodes}
+            # Will it be ok leaving these as orphan edges??
+        else:
+            combination_graph.edges = {edge_key: edge for edge_key, edge in graph.edges.items()
+                                       if edge.source_key in combination_graph.nodes and
+                                       edge.target_key in combination_graph.nodes}
         combination_graph_adj_dict = get_adjacency_dict(combination_graph)
         # Convert to standardized IDs so we can compare to template
         index_to_comb_key_map = {index: node_key for index, node_key in enumerate(combination_node_keys)}
@@ -301,11 +314,25 @@ def has_subgraph(graph: Graph, template: Graph):
     return matching_subgraphs
 
 
-def has_reached_end_state(graph_path: list, end: Graph) -> bool:
+def save_graph_path(graph_path: list, start: Graph, end: Graph):
+    start.print_fancy()
+    end.print_fancy()
+    merger = PdfFileMerger()
+    for graph, step_name in graph_path:
+        graph.print_fancy()
+        merger.append(f"{graph.name}.gv.pdf")
+    last_graph = graph_path[-1][0]
+    merger.write(f"path--{last_graph.name}.gv.pdf")
+    merger.close()
+
+
+def has_reached_end_state(graph_path: list, start: Graph, end: Graph) -> bool:
     latest_graph = graph_path[-1][0]
-    reached_end_state = True if has_subgraph(latest_graph, end) else False
+    reached_end_state = True if has_subgraph(latest_graph, end, include_edges_to_outsiders=True) else False
+
     if reached_end_state:
-        print(f"WE REACHED AN END STATE!!!!")
+        print(f"WE REACHED AN END STATE!!!! {latest_graph.name}")
+        save_graph_path(graph_path, start, end)
     return reached_end_state
 
 
@@ -370,7 +397,7 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
     graph_paths = [[(copy.deepcopy(start), "-")]]
     count = 0
 
-    while not any(has_reached_end_state(graph_path, end) for graph_path in graph_paths) and count < 5:
+    while not any(has_reached_end_state(graph_path, start, end) for graph_path in graph_paths) and count < 5:
         count += 1
         print(f"On iteration {count} of while loop. Have {len(graph_paths)} graph paths currently.")
         extended_graph_paths = list()
@@ -422,49 +449,30 @@ def find_proof(start: Graph, end: Graph, rules: List[IndistinguishablePair]):
         if extended_graph_paths:
             graph_paths = extended_graph_paths
 
-    start.print_fancy()
-    end.print_fancy()
-
-    for graph_path in graph_paths:
-        last_graph = graph_path[-1][0]
-        if last_graph.name == "start-rule_2_a-rule_3_a-rule_5_a-rule_3_b-rule_6_a":
-            print(f"solution is in here!")
-            merger = PdfFileMerger()
-            for graph, step_name in graph_path:
-                graph.print_fancy()
-                merger.append(f"{graph.name}.gv.pdf")
-            merger.write(f"path--{last_graph.name}.gv.pdf")
-            merger.close()
-
-    # last_graph = graph_paths[0][-1][0]
-    # last_graph.print_fancy()
-
 
 rules = create_standard_rules()
 
 start = Graph("start")
-start.add_node("in", WILDCARD, input_rank=1)
+start.add_node("in", WILDCARD)
 start.add_node("$", RANDOM)
 start.add_node("xor", XOR)
 start.add_node("F", F)
-start.add_node("out1", WILDCARD, output_rank=1)
-start.add_node("out2", WILDCARD, output_rank=2)
+start.add_node("out1", WILDCARD)
+start.add_node("out2", WILDCARD)
 start.add_edge("in", "xor")
 start.add_edge("$", "xor")
 start.add_edge("xor", "F")
 start.add_edge("$", "out1")
 start.add_edge("F", "out2")
-start.validate()
 
 end = Graph("end")
-end.add_node("in", WILDCARD, input_rank=1)
+# end.add_node("in", WILDCARD)
 end.add_node("$1", RANDOM)
 end.add_node("$2", RANDOM)
-end.add_node("out1", WILDCARD, output_rank=1)
-end.add_node("out2", WILDCARD, output_rank=2)
+end.add_node("out1", WILDCARD)
+end.add_node("out2", WILDCARD)
 end.add_edge("$1", "out1")
 end.add_edge("$2", "out2")
-end.validate()
 
 find_proof(start, end, rules)
 
