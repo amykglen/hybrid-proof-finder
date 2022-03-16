@@ -88,12 +88,6 @@ class Graph:
         dot.render(f"{self.name}.gv", view=auto_open_output)
         # TODO: Try to pin all input nodes at same top layer and output nodes at same bottom layer?
 
-    def validate(self):
-        inputs = [node.input_rank for node in self.nodes.values() if node.input_rank]
-        outputs = [node.output_rank for node in self.nodes.values() if node.output_rank]
-        assert inputs or outputs
-        return inputs, outputs
-
     def get_edge_key(self, edge: Edge) -> str:
         return f"{edge.source_key}--{edge.target_key}"
 
@@ -137,8 +131,11 @@ class IndistinguishablePair:
 
     def validate(self):
         # Make sure there are matching numbers of inputs/outputs in the two graphs
-        inputs_a, outputs_a = self.graph_a.validate()
-        inputs_b, outputs_b = self.graph_b.validate()
+        inputs_a = [node.input_rank for node in self.graph_a.nodes.values() if node.input_rank]
+        outputs_a = [node.output_rank for node in self.graph_a.nodes.values() if node.output_rank]
+        inputs_b = [node.input_rank for node in self.graph_b.nodes.values() if node.input_rank]
+        outputs_b = [node.output_rank for node in self.graph_b.nodes.values() if node.output_rank]
+        assert inputs_a or outputs_a
         assert sorted(inputs_a) == sorted(inputs_b)
         assert sorted(outputs_a) == sorted(outputs_b)
 
@@ -166,6 +163,7 @@ def create_standard_rules():
     rule_1.graph_b.add_node("out2", WILDCARD, output_rank=2)
     rule_1.graph_b.add_edge("$1", "out1")
     rule_1.graph_b.add_edge("$2", "out2")
+    rule_1.validate()
 
     # Rule 2 - ?? OTP thing? maybe revisit? remove F node and add ordering? is that actually how should work?
     rule_2 = IndistinguishablePair("rule_2")
@@ -189,6 +187,7 @@ def create_standard_rules():
     rule_2.graph_b.add_edge("$", "xor")
     rule_2.graph_b.add_node("out2", WILDCARD, output_rank=2)
     rule_2.graph_b.add_edge("$", "out2")
+    rule_2.validate()
 
     # Rule 3 - rand with/without replacement  # Don't need out node? just means can swap node?
     rule_3 = IndistinguishablePair("rule_3")
@@ -196,6 +195,7 @@ def create_standard_rules():
     rule_3.graph_a.add_node("$", RANDOM, output_rank=1)
     # Second graph
     rule_3.graph_b.add_node("$", RANDOM_NO_REPLACE, output_rank=1)
+    rule_3.validate()
 
     # Rule 4 - what is E??
     rule_4 = IndistinguishablePair("rule_4")
@@ -212,6 +212,7 @@ def create_standard_rules():
     rule_4.graph_b.add_node("out", WILDCARD, output_rank=1)
     rule_4.graph_b.add_edge("$", "out")
     rule_4.graph_b.add_edge("in", "deadend")
+    rule_4.validate()
 
     # Rule 5 - PRF is like random? What does red in this case mean though?
     rule_5 = IndistinguishablePair("rule_5")
@@ -228,6 +229,7 @@ def create_standard_rules():
     rule_5.graph_b.add_node("out", WILDCARD, output_rank=1)
     rule_5.graph_b.add_edge("$", "out")
     rule_5.graph_b.add_edge("in", "deadend")
+    rule_5.validate()
 
     # Rule 6 - XOR with random makes random
     rule_6 = IndistinguishablePair("rule_6")
@@ -246,8 +248,9 @@ def create_standard_rules():
     rule_6.graph_b.add_node("out", WILDCARD, output_rank=1)
     rule_6.graph_b.add_edge("$", "out")
     rule_6.graph_b.add_edge("in", "deadend")
+    rule_5.validate()
 
-    return [rule_2, rule_3, rule_5, rule_6]
+    return [rule_1, rule_2, rule_3, rule_4, rule_5, rule_6]
 
 
 def get_adjacency_dict(graph: Graph) -> defaultdict:
