@@ -1,3 +1,7 @@
+"""
+This is a proof-of-concept tool that attempts to find hybrid proofs between specified endpoints using a graph-based
+method that is built on top of the visual proof representation being developed by Mike Rosulek.
+"""
 import copy
 import itertools
 import time
@@ -372,6 +376,8 @@ class ProofFinder:
 
     @staticmethod
     def create_standard_rules():
+        # Thank you to Mike for these boilerplate "rules"
+
         # Rule 1 - Random into G generates two randoms
         rule_1 = Rule("rule_1")
         # First graph
