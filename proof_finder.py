@@ -123,7 +123,12 @@ class Graph:
         return f"{edge.source_key}--{edge.target_key}"
 
 
-class IndistinguishablePair:
+class Rule:
+    """
+    A rule defines two graphs (a and b) that are considered indistinguishable (in either direction). The two graphs
+    must have the same number of 'input' and 'output' nodes. The 'rank' of input and output nodes allows for order to
+    matter; input and output nodes in one template are mapped to input/output nodes with the same rank in the other.
+    """
 
     def __init__(self, name: str):
         self.name = name
@@ -367,8 +372,8 @@ class ProofFinder:
 
     @staticmethod
     def create_standard_rules():
-        # Rule 1 - ?? PRG thing? one random in turns into two out
-        rule_1 = IndistinguishablePair("rule_1")
+        # Rule 1 - Random into G generates two randoms
+        rule_1 = Rule("rule_1")
         # First graph
         rule_1.graph_a.add_node("$", RANDOM, input_rank=1)
         rule_1.graph_a.add_node("G", G)
@@ -387,8 +392,8 @@ class ProofFinder:
         rule_1.graph_b.add_edge("$2", "out2")
         rule_1.validate()
 
-        # Rule 2 - ?? OTP thing? maybe revisit? remove F node and add ordering? is that actually how should work?
-        rule_2 = IndistinguishablePair("rule_2")
+        # Rule 2 - OTP thing
+        rule_2 = Rule("rule_2")
         # First graph
         rule_2.graph_a.add_node("$", RANDOM)
         rule_2.graph_a.add_node("out1", WILDCARD, output_rank=1)
@@ -411,16 +416,16 @@ class ProofFinder:
         rule_2.graph_b.add_edge("$", "out2")
         rule_2.validate()
 
-        # Rule 3 - rand with/without replacement  # Don't need out node? just means can swap node?
-        rule_3 = IndistinguishablePair("rule_3")
+        # Rule 3 - Rand indistinguishable from rand without replacement
+        rule_3 = Rule("rule_3")
         # First graph
         rule_3.graph_a.add_node("$", RANDOM, output_rank=1)
         # Second graph
         rule_3.graph_b.add_node("$", RANDOM_NO_REPLACE, output_rank=1)
         rule_3.validate()
 
-        # Rule 4 - what is E??
-        rule_4 = IndistinguishablePair("rule_4")
+        # Rule 4 - E generates random
+        rule_4 = Rule("rule_4")
         # First graph
         rule_4.graph_a.add_node("in", WILDCARD, input_rank=1)
         rule_4.graph_a.add_node("E", E)
@@ -436,8 +441,8 @@ class ProofFinder:
         rule_4.graph_b.add_edge("in", "deadend")
         rule_4.validate()
 
-        # Rule 5 - PRF is like random? What does red in this case mean though?
-        rule_5 = IndistinguishablePair("rule_5")
+        # Rule 5 - F generates random from random without replacement
+        rule_5 = Rule("rule_5")
         # First graph
         rule_5.graph_a.add_node("in", RANDOM_NO_REPLACE, input_rank=1)
         rule_5.graph_a.add_node("F", F)
@@ -453,8 +458,8 @@ class ProofFinder:
         rule_5.graph_b.add_edge("in", "deadend")
         rule_5.validate()
 
-        # Rule 6 - XOR with random makes random
-        rule_6 = IndistinguishablePair("rule_6")
+        # Rule 6 - Basic OTP
+        rule_6 = Rule("rule_6")
         # First graph
         rule_6.graph_a.add_node("in", WILDCARD, input_rank=1)
         rule_6.graph_a.add_node("xor", XOR)
