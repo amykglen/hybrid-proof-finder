@@ -6,6 +6,7 @@ method that is built on top of the visual proof representation being developed b
 To run the tool on a provided example, do:
 
 ```
+pip install -r requirements.txt
 python main.py
 ```
 
